@@ -12,6 +12,12 @@ Osobní offline deník pro BJJ a silový trénink. Zachovává vzhled a funkce d
 
 Jde o testovací APK podepsané vývojovým klíčem, nikoli vydání v Google Play. Klíč GitHub runneru nemusí být mezi běhy stejný; před případnou odinstalací kvůli nekompatibilnímu podpisu vždy exportuj JSON zálohu. Pro stabilní aktualizace je potřeba později nastavit trvalý podpisový klíč.
 
+## Režim celé obrazovky (0.1.1)
+
+Stavový řádek i systémová navigace jsou při používání skryté. Přejetím od horního nebo dolního okraje je dočasně zobrazíš. Po návratu z výběru souboru nebo jiné aplikace se režim obnoví. Obsah respektuje výřez fotoaparátu a na Androidu 11+ prostor pro klávesnici; na starších verzích se používá systémové zmenšení okna.
+
+Před instalací aktualizace si ulož JSON zálohu. Pokud Android odmítne aktualizaci kvůli jinému vývojovému podpisu, neodinstalovávej původní aplikaci bez ověřené zálohy. Po nové instalaci obnov JSON přes Profil.
+
 ## Funkce
 
 - Gi, No-Gi, Open Mat, silový a kondiční trénink, regenerace a vlastní aktivity.
