@@ -211,3 +211,8 @@ assert.equal(vm.runInContext('db.customExercises[0].unit',cold),'meters');
 assert.equal(vm.runInContext('db.sessions[0].sets[0].unit',cold),'meters');
 assert.equal(vm.runInContext('JSON.stringify(db)',cold),richBackup);
 console.log('PASS: cold boot from persisted mixed-unit workouts and custom library without demo fallback or data changes.');
+
+run("db.sessions[0].sets[0].done=true;globalThis.futureCopy=makeCopies(db.sessions[0],[add(today(),1)])[0]");
+assert.equal(run('futureCopy.sets[0].done'),false);
+assert.equal(run('db.sessions[0].sets[0].done'),true);
+console.log('PASS: planned copies reset series completion without changing the source workout.');
