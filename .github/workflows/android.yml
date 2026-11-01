@@ -27,6 +27,21 @@ jobs:
         run: |
           javac -d /tmp/bjj-backup-tests app/src/main/java/cz/builttoroll/app/BackupFiles.java tests/BackupFilesTest.java
           java -cp /tmp/bjj-backup-tests cz.builttoroll.app.BackupFilesTest
+      - name: Install browser test tools
+        run: |
+          npm install --prefix /tmp/bjj-browser playwright@1.62.1
+          /tmp/bjj-browser/node_modules/.bin/playwright install --with-deps chromium
+      - name: Test real mobile and desktop UI
+        env:
+          PLAYWRIGHT_MODULE: /tmp/bjj-browser/node_modules/playwright
+        run: node tests/browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: UI-review
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Build and lint
         run: gradle --no-daemon assembleDebug lintDebug
       - uses: actions/upload-artifact@v4

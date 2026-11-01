@@ -75,3 +75,20 @@ node tests/smoke.cjs
 ```
 
 Android dialogy, instalaci, chování klávesnice a ukládání po restartu je nutné ověřit na telefonu nebo emulátoru.
+
+## Verze 0.2.0 — profil, zásobník a nový zápis
+
+- Rozšířený profil: základní údaje, BJJ a silové zkušenosti, cíle, vybavení, směny a volitelná omezení. Aktuální hmotnost se bere z vážení. Cíle jsou evidované údaje; automatický trenér zatím není implementovaný.
+- Zásobník 280 cviků ve 23 skupinách: české i anglické vyhledávání bez diakritiky, filtr vybavení, oblíbené a poslední cviky.
+- Vlastní cvik: název, partie, vybavení, výchozí jednotka, alternativní názvy a poznámky. Vlastní cviky lze upravit a odstranit ze zásobníku; zapsané tréninky zůstanou zachované.
+- Přístup k zásobníku z Profilu a při přidávání cviku do tréninku.
+- Nové ovládání: přehled cviků → detail cviku → tabulka jednotlivých sérií. Změny cviků se uloží až s celým tréninkem.
+- Opakování, sekundy a metry, různé série, označení hotové série, tempo, pauza a provedení na každou stranu. Dopomoc se nezapočítává jako zvednutý objem.
+- Profil, vlastní cviky, oblíbené a nové údaje sérií jsou součástí JSON zálohy. CSV doplňuje sloupce pro nové údaje série.
+- „Začít s prázdným deníkem“ zachová profil a vlastní zásobník. Obnovení ukázkových dat nahrazuje všechna data podle potvrzovacího dialogu.
+
+### Ověření rozhraní
+
+Workflow spouští datové regresní testy, testy souborového I/O, skutečný Chromium test mobilního zápisu, profilů a záloh a nakonec Android build/lint. `UI-review` obsahuje snímky testovacího rozhraní a výsledek browser testů. `BUILT-TO-ROLL-Android` obsahuje APK.
+
+Testovací instalace jsou stále podepsané vývojovým klíčem runneru. Pokud Android odmítne aktualizaci kvůli podpisu, neodinstalovávej aplikaci bez ověřené zálohy. Nativní výběr souboru a chování klávesnice na konkrétním telefonu vyžadují kontrolu na zařízení; browser test je nenahrazuje.

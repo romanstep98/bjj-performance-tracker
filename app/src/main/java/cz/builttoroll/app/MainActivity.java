@@ -261,7 +261,7 @@ public class MainActivity extends Activity {
     }
 
     @Override public void onBackPressed() {
-        web.evaluateJavascript("(function(){if(typeof editing!=='undefined'&&editing){closeEditor();return false;}if(typeof route!=='undefined'&&route!=='home'){navigate('home');return false;}return true;})()", value -> {
+        web.evaluateJavascript("(function(){if(window.handleAppBack&&window.handleAppBack())return false;if(typeof editing!=='undefined'&&editing){closeEditor();return false;}if(typeof route!=='undefined'&&route!=='home'){navigate('home');return false;}return true;})()", value -> {
             if ("true".equals(value)) new AlertDialog.Builder(this).setMessage("Zavřít BUILT TO ROLL?")
                 .setPositiveButton("Zavřít", (d, w) -> finish()).setNegativeButton("Zůstat", null).show();
         });

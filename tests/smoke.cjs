@@ -7,19 +7,21 @@ const html = fs.readFileSync(path.join(__dirname, '../app/src/main/assets/index.
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 const storage = new Map(), nodes = new Map();
 const node = selector => {
-  if (!nodes.has(selector)) nodes.set(selector, {innerHTML:'', textContent:'', hidden:false, addEventListener(){}, classList:{add(){},remove(){}}, focus(){}});
+  if (!nodes.has(selector)) nodes.set(selector, {innerHTML:'', textContent:'', hidden:false, dataset:{}, querySelectorAll(){return []}, toggleAttribute(){}, addEventListener(){}, classList:{add(){},remove(){}}, focus(){}});
   return nodes.get(selector);
 };
 const exportCalls = [];
 const context = vm.createContext({
-  console, Date, Math, JSON, Set, Map, Number, String, Array, Object, Intl, Blob,
-  document:{querySelector:node,addEventListener(){},title:''},
+  console, Date, Math, JSON, Set, Map, Number, String, Array, Object, Intl, Blob, FormData:class extends Map{constructor(){super();}},
+  document:{querySelector:node,querySelectorAll(){return []},addEventListener(){},title:''},
   window:{AndroidFiles:{exportFile(...args){exportCalls.push(args)}}},
   localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},
   setInterval(){},setTimeout(){},clearTimeout(){},confirm:()=>true,
 });
 const run = code => vm.runInContext(code, context);
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../app/src/main/assets/exercise-catalog.js'),'utf8'),context);
 vm.runInContext(script, context);
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../app/src/main/assets/app-v2.js'),'utf8'),context);
 assert.equal(run('db.demo'), false);
 assert.equal(run('db.sessions.length'), 0);
 assert.equal(run('db.profile.name'), 'Roman');
@@ -97,12 +99,12 @@ assert.equal(run("copies[1].sets[3].unit"),'seconds');
 assert.equal(run("copies[1].status"),'planned');
 run('trainingCsv()');
 const csv=exportCalls.at(-1)[1].split('\r\n').map(line=>line.split(';'));
-assert.ok(csv.every(row=>row.length===16),'CSV has consistent column count');
-assert.equal(csv[0].at(-1),'"Jednotka série"');
+assert.ok(csv.every(row=>row.length===21),'CSV has consistent column count');
+assert.equal(csv[0][15],'"Jednotka série"');
 assert.equal(csv[1][8],'"15"');
-assert.equal(csv[1].at(-1),'"m"');
+assert.equal(csv[1][15],'"m"');
 assert.equal(csv[4][8],'"30"');
-assert.equal(csv[4].at(-1),'"s"');
+assert.equal(csv[4][15],'"s"');
 for (const [unit,value,valid] of [['reps',2.5,false],['seconds',30.5,true],['meters',15.5,true],
   ['meters',-1,false],['seconds',86401,false],['yards',15,false],[null,5,false]]) {
   context.sampleUnit=unit;context.sampleValue=value;
@@ -165,3 +167,27 @@ assert.equal(run('window.receiveAndroidBackup()'),true);
 assert.equal(importFinished,2);
 assert.equal(run('JSON.stringify(db)'),mixed);
 console.log('PASS: empty/truncated/invalid backup rejection, BOM import, cancelled restore, storage-failure rollback, native import handoff, export success acknowledgement.');
+
+assert.equal(run('BUILTIN_EXERCISES.length'),280);
+assert.equal(run('new Set(BUILTIN_EXERCISES.map(x=>x.id)).size'),280);
+assert.equal(run("filteredExercises({tab:'all',query:'zadni drep'}).some(x=>x.name==='Back Squat')"),true);
+assert.equal(run("filteredExercises({tab:'all',query:'tlačení saní'})[0].name"),'Sled Push');
+assert.equal(run("filteredExercises({tab:'all',query:'',category:'core',equipment:'barbell'}).length"),0);
+assert.equal(run("makeCatalogSets(matchExercise('plank'))[0].unit"),'seconds');
+assert.equal(run("makeCatalogSets(matchExercise('sáně'))[0].unit"),'meters');
+context.customValues=new Map([['exerciseName','My QA Carry'],['category','carry'],['equipment','dumbbell'],['unit','meters'],['aliases','moje chůze'],['exerciseNotes','Moje varianta']]);
+run('globalThis.custom=customExerciseFromValues(customValues);globalThis.nextDiary=clone(db);nextDiary.customExercises=[custom];nextDiary.exerciseFavorites=[custom.id];persistDiary(nextDiary)');
+assert.equal(run("filteredExercises({tab:'custom',query:'moje chuze'}).length"),1);
+const richBackup=run('JSON.stringify(db)');
+run('db=parseBackupText(JSON.stringify(db))');
+assert.equal(run('JSON.stringify(db)'),richBackup);
+assert.equal(run('db.customExercises[0].unit'),'meters');
+context.customValues.set('exerciseName','Back Squat');
+assert.throws(()=>run('customExerciseFromValues(customValues)'),/existuje/);
+assert.throws(()=>run("validate({...clone(db),customExercises:[{...custom,unit:'yards'}]})"));
+assert.throws(()=>run("validate({...clone(db),profile:{...db.profile,heightCm:400}})"));
+assert.throws(()=>run("validate({...clone(db),profile:{...db.profile,birthDate:'2026-02-31'}})"));
+assert.throws(()=>run("validate({...clone(db),sessions:[{...db.sessions[0],sets:[{...db.sessions[0].sets[0],done:'yes'}]}]})"));
+run("globalThis.assisted=[{exercise:'Assisted Pull-Up',reps:10,weight:30,loadMode:'assistance'}]");
+assert.ok(run('strengthAmounts(assisted)').includes('0 kg'),'Assistance is not added to lifted tonnage');
+console.log('PASS: 280 unique exercises, Czech aliases, filters, unit defaults, custom exercise validation and backup, profile validation, assistance exclusion.');
