@@ -24,6 +24,14 @@ U každého cviku vyber **Zapisovat jako → Opakování / Čas (s) / Vzdálenos
 
 Starší záznamy bez jednotky zůstávají opakováním. Historie, minulý výkon, kopírování a JSON uchovávají jednotky; CSV má zvláštní sloupec Jednotka série. Objem v kg se počítá jen z opakování × váhy, čas a metry se sčítají zvlášť. Zálohy s novými jednotkami obnovuj v této nebo novější verzi.
 
+## Oprava záloh (0.1.3)
+
+Android čte vybraný dokument přímo přes systémové souborové rozhraní, nezávisle na čtení souborů ve WebView. Import rozpozná prázdný, neúplný nebo neplatný JSON a podporuje UTF-8 BOM. Chybný import ani odmítnuté potvrzení nezmění deník; obnova se dokončí až po úspěšném místním uložení.
+
+Export má pracovní kopii v soukromém úložišti aplikace před otevřením systémového dialogu. Tato kopie přežije obnovení aktivity a procesu. Aplikace označí JSON zálohu jako uloženou až po dokončení zápisu a zavření souboru, nikoli už po stisku tlačítka.
+
+Pokud starší záloha obsahuje 0 B, nová verze z ní žádné záznamy neobnoví. Je nutný nový export z původní aplikace nebo jiná záloha. Při problému s podpisem aktualizace aplikaci neodinstalovávej, dokud nemáš ověřenou platnou zálohu.
+
 ## Funkce
 
 - Gi, No-Gi, Open Mat, silový a kondiční trénink, regenerace a vlastní aktivity.

@@ -12,22 +12,28 @@ import android.view.WindowInsetsController;
 import android.widget.FrameLayout;
 import android.webkit.JavascriptInterface;
 import android.webkit.JsResult;
-import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import org.json.JSONObject;
 
 public class MainActivity extends Activity {
     private static final int EXPORT = 100, IMPORT = 101;
     private static final String HOME = "file:///android_asset/index.html";
     private WebView web;
-    private ValueCallback<Uri[]> fileCallback;
-    private byte[] pendingExport;
+    private boolean webReady;
+    private boolean fileOperation;
+
+    private File exportFile() { return new File(getFilesDir(), "backup-export.pending"); }
+    private File importFile() { return new File(getFilesDir(), "backup-import.pending"); }
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -73,6 +79,12 @@ public class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         web.addJavascriptInterface(new FileBridge(), "AndroidFiles");
         web.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView view, String url) {
+                if (HOME.equals(url)) {
+                    webReady = true;
+                    deliverFileEvents();
+                }
+            }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
                 return !HOME.equals(req.getUrl().toString());
             }
@@ -89,16 +101,6 @@ public class MainActivity extends Activity {
                     .setPositiveButton("Potvrdit", (d, w) -> result.confirm())
                     .setNegativeButton("Zrušit", (d, w) -> result.cancel())
                     .setOnCancelListener(d -> result.cancel()).show();
-                return true;
-            }
-            @Override public boolean onShowFileChooser(WebView v, ValueCallback<Uri[]> callback, FileChooserParams p) {
-                if (fileCallback != null) fileCallback.onReceiveValue(null);
-                fileCallback = callback;
-                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("*/*");
-                try { startActivityForResult(intent, IMPORT); }
-                catch (RuntimeException e) { fileCallback.onReceiveValue(null); fileCallback = null; }
                 return true;
             }
         });
@@ -135,44 +137,125 @@ public class MainActivity extends Activity {
         if (web != null) web.post(this::hideSystemBars);
     }
 
-    private class FileBridge {
-        @JavascriptInterface public void exportFile(String name, String content, String mime) {
-            if (content == null || content.length() > 20_000_000) return;
+    private void fileError(String message) {
+        runOnUiThread(() -> {
+            if (!isDestroyed()) new AlertDialog.Builder(this).setTitle("Záloha")
+                .setMessage(message).setPositiveButton("OK", null).show();
+        });
+    }
+
+    private void deliverFileEvents() {
+        if (!webReady || isDestroyed()) return;
+        if (importFile().isFile())
+            web.evaluateJavascript("window.receiveAndroidBackup && window.receiveAndroidBackup()", null);
+        String date = getPreferences(MODE_PRIVATE).getString("backupSaved", null);
+        if (date != null) web.evaluateJavascript(
+            "window.onAndroidBackupSaved && window.onAndroidBackupSaved(" + JSONObject.quote(date) + ")",
+            result -> {
+                if ("true".equals(result)) getPreferences(MODE_PRIVATE).edit().remove("backupSaved").apply();
+            });
+    }
+
+    public class FileBridge {
+        @JavascriptInterface public void importBackup() {
             runOnUiThread(() -> {
-                if (pendingExport != null) {
-                    Toast.makeText(MainActivity.this, "Nejdřív dokonči předchozí export.", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                pendingExport = content.getBytes(StandardCharsets.UTF_8);
-                Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                if (fileOperation) { fileError("Nejdřív dokonči předchozí práci se souborem."); return; }
+                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType(mime != null && mime.startsWith("text/csv") ? "text/csv" : "application/json");
-                intent.putExtra(Intent.EXTRA_TITLE, name == null ? "bjj-zaloha.json" : name.replaceAll("[^a-zA-Z0-9._-]", "_"));
-                try { startActivityForResult(intent, EXPORT); }
-                catch (RuntimeException e) { pendingExport = null; Toast.makeText(MainActivity.this, "Nelze otevřít ukládání souborů.", Toast.LENGTH_LONG).show(); }
+                // Some Android file managers label JSON as text/plain or octet-stream.
+                intent.setType("*/*");
+                fileOperation = true;
+                try { startActivityForResult(intent, IMPORT); }
+                catch (RuntimeException e) { fileOperation = false; fileError("Nelze otevřít výběr zálohy."); }
             });
         }
+
+        @JavascriptInterface public String readImportedBackup() {
+            try (InputStream in = new FileInputStream(importFile())) {
+                return new String(BackupFiles.read(in, BackupFiles.MAX_BACKUP_BYTES), StandardCharsets.UTF_8);
+            } catch (Exception e) { return ""; }
+        }
+
+        @JavascriptInterface public void finishImport() { importFile().delete(); }
+
+        @JavascriptInterface public void exportBackup(String name, String content) {
+            queueExport(name, content, "application/json", true);
+        }
+
+        @JavascriptInterface public void exportFile(String name, String content, String mime) {
+            queueExport(name, content, mime, false);
+        }
+    }
+
+    private void queueExport(String name, String text, String mime, boolean backup) {
+        if (text == null || text.trim().isEmpty() || text.length() > BackupFiles.MAX_EXPORT_BYTES) {
+            fileError("Prázdný nebo příliš velký soubor nelze exportovat."); return;
+        }
+        runOnUiThread(() -> {
+            if (fileOperation) { fileError("Nejdřív dokonči předchozí práci se souborem."); return; }
+            fileOperation = true;
+            new Thread(() -> {
+                try {
+                    BackupFiles.stage(exportFile(), text.getBytes(StandardCharsets.UTF_8),
+                        backup ? BackupFiles.MAX_BACKUP_BYTES : BackupFiles.MAX_EXPORT_BYTES);
+                    // Persist the metadata along with the bytes before launching another activity.
+                    boolean stored = getPreferences(MODE_PRIVATE).edit().putBoolean("exportIsBackup", backup).commit();
+                    if (!stored) throw new java.io.IOException("Nelze připravit zálohu.");
+                    runOnUiThread(() -> {
+                        if (isDestroyed()) return;
+                        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                        intent.addCategory(Intent.CATEGORY_OPENABLE);
+                        intent.setType(mime != null && mime.startsWith("text/csv") ? "text/csv" : "application/json");
+                        intent.putExtra(Intent.EXTRA_TITLE, name == null ? "bjj-zaloha.json" : name.replaceAll("[^a-zA-Z0-9._-]", "_"));
+                        try { startActivityForResult(intent, EXPORT); }
+                        catch (RuntimeException e) { fileOperation = false; fileError("Nelze otevřít ukládání souborů."); }
+                    });
+                } catch (Exception e) { runOnUiThread(() -> fileOperation = false); fileError("Export se nezdařil: " + e.getMessage()); }
+            }).start();
+        });
     }
 
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
-        if (request == IMPORT && fileCallback != null) {
-            fileCallback.onReceiveValue(result == RESULT_OK && data != null && data.getData() != null ? new Uri[]{data.getData()} : null);
-            fileCallback = null;
+        if (request == IMPORT) {
+            if (result != RESULT_OK || data == null || data.getData() == null) { fileOperation = false; return; }
+            Uri source = data.getData();
+            new Thread(() -> {
+                try (InputStream in = getContentResolver().openInputStream(source)) {
+                    byte[] bytes = BackupFiles.read(in, BackupFiles.MAX_BACKUP_BYTES);
+                    BackupFiles.stage(importFile(), bytes, BackupFiles.MAX_BACKUP_BYTES);
+                    runOnUiThread(this::deliverFileEvents);
+                } catch (Exception e) { fileError("Načtení zálohy se nezdařilo: " + e.getMessage()); }
+                finally { runOnUiThread(() -> fileOperation = false); }
+            }).start();
         }
         if (request == EXPORT) {
-            byte[] bytes = pendingExport;
-            pendingExport = null;
-            if (result != RESULT_OK || data == null || data.getData() == null || bytes == null) return;
+            if (result != RESULT_OK || data == null || data.getData() == null) {
+                fileOperation = false; exportFile().delete(); return;
+            }
             Uri destination = data.getData();
             new Thread(() -> {
-                try (OutputStream out = getContentResolver().openOutputStream(destination, "wt")) {
-                    if (out == null) throw new java.io.IOException("No output stream");
-                    out.write(bytes);
-                    runOnUiThread(() -> Toast.makeText(this, "Soubor byl uložen.", Toast.LENGTH_LONG).show());
+                try {
+                    byte[] bytes;
+                    try (InputStream in = new FileInputStream(exportFile())) {
+                        bytes = BackupFiles.read(in, BackupFiles.MAX_EXPORT_BYTES);
+                    }
+                    // Close the stream successfully before declaring the backup saved.
+                    try (OutputStream out = getContentResolver().openOutputStream(destination, "wt")) {
+                        if (out == null) throw new java.io.IOException("Soubor nelze otevřít pro zápis.");
+                        out.write(bytes);
+                        out.flush();
+                    }
+                    if (getPreferences(MODE_PRIVATE).getBoolean("exportIsBackup", false))
+                        getPreferences(MODE_PRIVATE).edit().putString("backupSaved", java.time.LocalDate.now().toString()).commit();
+                    exportFile().delete();
+                    runOnUiThread(() -> {
+                        if (!isDestroyed()) Toast.makeText(this, "Soubor byl uložen (" + bytes.length + " B).", Toast.LENGTH_LONG).show();
+                        deliverFileEvents();
+                    });
                 } catch (Exception e) {
-                    runOnUiThread(() -> Toast.makeText(this, "Uložení se nezdařilo. Export zopakuj.", Toast.LENGTH_LONG).show());
-                }
+                    fileError("Uložení se nezdařilo. Export zopakuj. " + e.getMessage());
+                } finally { runOnUiThread(() -> fileOperation = false); }
             }).start();
         }
     }
@@ -184,7 +267,7 @@ public class MainActivity extends Activity {
         });
     }
     @Override protected void onDestroy() {
-        if (fileCallback != null) fileCallback.onReceiveValue(null);
+        webReady = false;
         web.removeJavascriptInterface("AndroidFiles");
         web.destroy();
         super.onDestroy();

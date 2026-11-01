@@ -12,7 +12,7 @@ const node = selector => {
 };
 const exportCalls = [];
 const context = vm.createContext({
-  console, Date, Math, JSON, Set, Map, Number, String, Array, Object, Intl,
+  console, Date, Math, JSON, Set, Map, Number, String, Array, Object, Intl, Blob,
   document:{querySelector:node,addEventListener(){},title:''},
   window:{AndroidFiles:{exportFile(...args){exportCalls.push(args)}}},
   localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},
@@ -119,3 +119,49 @@ assert.equal(run('collectSets()[1].unit'),'seconds');
 assert.equal(run('collectSets()[1].notes'),'Série 2');
 assert.equal(blocks[0].querySelector('.variedhint').hidden,false);
 console.log('PASS: mixed-unit collection, JSON roundtrip, history, editor, copy, CSV, tonnage exclusion, unit validation, non-destructive unit switch.');
+
+// Restore must validate before replacing anything and preserve the current diary
+// if content is empty/truncated, confirmation is declined, or disk storage fails.
+const beforeImport=run('JSON.stringify(db)');
+for (const bad of ['', '  \n ', '\uFEFF ', '{"version":1,', '{"version":999}', '<html>download failed</html>']) {
+  context.backupText=bad;
+  assert.throws(()=>run('restoreBackupText(backupText)'));
+  assert.equal(run('JSON.stringify(db)'),beforeImport);
+}
+context.backupText='\uFEFF'+mixed;
+assert.equal(run('JSON.stringify(parseBackupText(backupText))'),mixed,'UTF-8 BOM backup is supported');
+context.confirm=()=>false;
+assert.equal(run('restoreBackupText(backupText)'),false);
+assert.equal(run('JSON.stringify(db)'),beforeImport);
+context.confirm=()=>true;
+const originalSet=context.localStorage.setItem;
+context.localStorage.setItem=()=>{throw Error('Storage full');};
+assert.throws(()=>run('restoreBackupText(backupText)'),/trvale uložit/);
+assert.equal(run('JSON.stringify(db)'),beforeImport);
+context.localStorage.setItem=originalSet;
+assert.equal(run('restoreBackupText(backupText)'),true);
+assert.equal(run('JSON.stringify(db)'),mixed);
+assert.equal(storage.get('bjj-performance-html-beta-v1'),mixed);
+
+const nativeBackups=[];
+context.window.AndroidFiles.exportBackup=(name,content)=>nativeBackups.push({name,content});
+run("delete db.lastBackup;save();exportDiaryBackup()");
+assert.equal(nativeBackups.length,1);
+assert.equal(run('db.lastBackup'),undefined,'Opening picker is not a completed backup');
+assert.equal(JSON.parse(nativeBackups[0].content).sessions[0].sets[0].unit,'meters');
+assert.equal(run("window.onAndroidBackupSaved('2026-11-01')"),true);
+assert.equal(run('db.lastBackup'),'2026-11-01');
+assert.equal(run("window.onAndroidBackupSaved('bad-date')"),false);
+let importFinished=0;
+const importAlerts=[];
+context.alert=message=>importAlerts.push(message);
+context.window.AndroidFiles.readImportedBackup=()=>'';
+context.window.AndroidFiles.finishImport=()=>{importFinished++;};
+assert.equal(run('window.receiveAndroidBackup()'),false);
+assert.equal(importFinished,1);
+assert.ok(importAlerts[0].includes('prázdný'));
+context.window.AndroidFiles.readImportedBackup=()=>mixed;
+assert.equal(run('window.receiveAndroidBackup()'),true);
+assert.equal(importFinished,2);
+assert.equal(run('JSON.stringify(db)'),mixed);
+console.log('PASS: empty/truncated/invalid backup rejection, BOM import, cancelled restore, storage-failure rollback, native import handoff, export success acknowledgement.');

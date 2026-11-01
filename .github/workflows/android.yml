@@ -23,6 +23,10 @@ jobs:
           gradle-version: '8.13'
       - name: Check diary data logic
         run: node tests/smoke.cjs
+      - name: Check backup byte I/O and durable staging
+        run: |
+          javac -d /tmp/bjj-backup-tests app/src/main/java/cz/builttoroll/app/BackupFiles.java tests/BackupFilesTest.java
+          java -cp /tmp/bjj-backup-tests cz.builttoroll.app.BackupFilesTest
       - name: Build and lint
         run: gradle --no-daemon assembleDebug lintDebug
       - uses: actions/upload-artifact@v4
@@ -31,4 +35,3 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
-
