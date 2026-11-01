@@ -18,6 +18,12 @@ Stavový řádek i systémová navigace jsou při používání skryté. Přejet
 
 Před instalací aktualizace si ulož JSON zálohu. Pokud Android odmítne aktualizaci kvůli jinému vývojovému podpisu, neodinstalovávej původní aplikaci bez ověřené zálohy. Po nové instalaci obnov JSON přes Profil.
 
+## Jednotky cviků (0.1.2)
+
+U každého cviku vyber **Zapisovat jako → Opakování / Čas (s) / Vzdálenost (m)**. Například sáně: 3 série × 15 m; plank: 3 série × 30 s. Jednotka platí pro všechny série daného cviku. Jednotlivé série mohou mít různé hodnoty. Změna jednotky ponechá zadaná čísla, nepřepočítává je. Sekundy a metry podporují desetinné hodnoty.
+
+Starší záznamy bez jednotky zůstávají opakováním. Historie, minulý výkon, kopírování a JSON uchovávají jednotky; CSV má zvláštní sloupec Jednotka série. Objem v kg se počítá jen z opakování × váhy, čas a metry se sčítají zvlášť. Zálohy s novými jednotkami obnovuj v této nebo novější verzi.
+
 ## Funkce
 
 - Gi, No-Gi, Open Mat, silový a kondiční trénink, regenerace a vlastní aktivity.
