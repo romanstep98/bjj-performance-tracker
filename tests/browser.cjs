@@ -6,12 +6,12 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const root=path.resolve(__dirname,'../app/src/main/assets');
 const output=path.resolve(__dirname,'../test-results');fs.mkdirSync(output,{recursive:true});
 const server=http.createServer((req,res)=>{const file=path.join(root,decodeURIComponent(req.url.split('?')[0]==='/'?'/index.html':req.url.split('?')[0]));if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}try{res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));}catch(e){res.writeHead(404).end();}});
-let browser;
+let browser,debugPage;
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  const ctx=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,timezoneId:'Europe/Prague',acceptDownloads:true});
- const page=await ctx.newPage();
+ const page=await ctx.newPage();debugPage=page;
  const errors=[],dialogs=[];
  page.on('pageerror',error=>errors.push(error.message));
  page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept();});
@@ -88,7 +88,10 @@ let browser;
  await active().locator('.seriesdetails summary').first().click();
  const second=active().locator('[data-series]').nth(1);
  await second.locator('[name=setReps]').fill('20');
- await second.locator('[name=setDone]').check();
+ try { await second.locator('[name=setDone]').check(); } catch(error) {
+  console.error('CHECKBOX DEBUG',JSON.stringify(await second.locator('[name=setDone]').evaluate(el=>{const r=el.getBoundingClientRect();return {html:el.outerHTML,parent:el.parentElement.outerHTML,checked:el.checked,disabled:el.disabled,centerElement:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.outerHTML,form:el.form?.id};}))));
+  console.error('PAGE ERRORS',errors);throw error;
+ }
  await second.locator('.seriesnote summary').click();
  await second.locator('[name=setNote]').fill('Druhá série delší');
  await noOverflow('Series editor');
@@ -150,4 +153,4 @@ let browser;
  fs.writeFileSync(path.join(output,'browser-results.json'),JSON.stringify({passed:true,catalogSize:280,mobileWidths:[320,390,430],checks:['profile persistence','category/equipment and Czech search','custom exercises and favorites','HTML escaping','mixed units','varied sets','series completion','tempo/rest','save and reopen','JSON export/import with BOM','empty/truncated restore preserves diary','clear preserves catalog','responsive layout'],errors},null,2));
  console.log('PASS: real Chromium UI flows, mixed-unit workout, profile/custom library, persistence, backup restore, responsive widths and screenshots.');
  await browser.close();server.close();
-})().catch(async error=>{console.error(error);if(browser)await browser.close();server.close();process.exitCode=1;});
+})().catch(async error=>{console.error(error);if(debugPage){try{await debugPage.screenshot({path:path.join(output,'failure.png'),fullPage:true});fs.writeFileSync(path.join(output,'failure.html'),await debugPage.content());}catch(e){}}if(browser)await browser.close();server.close();process.exitCode=1;});
