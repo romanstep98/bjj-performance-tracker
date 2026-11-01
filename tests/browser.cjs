@@ -20,7 +20,7 @@ let browser,debugPage;
  const clickV2=(value)=>page.locator(`[data-v2="${value}"]`).first().click();
  async function noOverflow(label){const size=await page.evaluate(()=>({viewport:innerWidth,body:document.documentElement.scrollWidth}));assert.ok(size.body<=size.viewport+1,label+': no horizontal page overflow '+JSON.stringify(size));}
  async function closeExercise(){await page.locator('.exercise-detail:visible [data-v2="close-exercise"]').last().click();}
- async function addFromLibrary(query,name){await page.locator('#entryform [data-action="add-exercise"]').click();await page.locator('#librarysearch').fill(query);const pick=page.locator('.library-pick').filter({has:page.locator('strong').filter({hasText:new RegExp('^'+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'$')})});assert.equal(await pick.count(),1,'Find exact exercise '+name);await pick.click();}
+ async function addFromLibrary(query,name){await page.locator('#entryform [data-action="add-exercise"]').click();await page.locator('#pickersearch').fill(query);const pick=page.locator('#librarydrawer .library-pick').filter({has:page.locator('strong').filter({hasText:new RegExp('^'+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'$')})});assert.equal(await pick.count(),1,'Find exact exercise '+name);await pick.click();}
  await page.goto(url);await page.locator('#app h1').waitFor();
  assert.equal((await state()).sessions.length,0);
  assert.equal(await page.evaluate(()=>BUILTIN_EXERCISES.length),280);
@@ -48,7 +48,7 @@ let browser,debugPage;
  await page.reload();await page.locator('#app h1').waitFor();
  assert.equal((await state()).profile.club,'QA BJJ Club');
  await page.locator('#bottomnav [data-nav="profile"]').click();
- await page.screenshot({path:path.join(output,'01-profile-mobile.png'),fullPage:true});
+ await page.screenshot({animations:'disabled',path:path.join(output,'01-profile-mobile.png'),fullPage:true});
  await page.locator('#app [data-nav="library"]').click();
  await page.locator('#librarysearch').fill('zadni drep');
  assert.ok(await page.locator('.library-item').count()>=1);
@@ -77,7 +77,7 @@ let browser,debugPage;
  await page.locator('#librarysearch').fill('qa chuze');
  assert.equal(await page.locator('.library-item').count(),1);
  assert.equal(await page.locator('.library-pick img').count(),0,'Custom notes escaped');
- await page.screenshot({path:path.join(output,'02-library-mobile.png'),fullPage:true});
+ await page.screenshot({animations:'disabled',path:path.join(output,'02-library-mobile.png'),fullPage:true});
  await page.locator('.library-pick').click();
  const active=()=>page.locator('.exerciseblock[data-expanded=true]');
  await active().locator('[name=setQuickReps]').fill('15');
@@ -92,7 +92,7 @@ let browser,debugPage;
  await second.locator('.seriesnote summary').click();
  await second.locator('[name=setNote]').fill('Druhá série delší');
  await noOverflow('Series editor');
- await page.screenshot({path:path.join(output,'03-series-mobile.png'),fullPage:true});
+ await page.screenshot({animations:'disabled',path:path.join(output,'03-series-mobile.png'),fullPage:true});
  await closeExercise();
  await addFromLibrary('plank','Plank');
  assert.equal(await active().locator('[name=setUnit]').inputValue(),'seconds');
@@ -144,10 +144,10 @@ let browser,debugPage;
   await page.setViewportSize({width,height:900});
   await page.evaluate(()=>navigate('profile'));await noOverflow('Profile '+width);
   await page.evaluate(()=>navigate('library'));await noOverflow('Library '+width);
-  if(width===1365)await page.screenshot({path:path.join(output,'04-library-desktop.png'),fullPage:true});
+  if(width===1365)await page.screenshot({animations:'disabled',path:path.join(output,'04-library-desktop.png'),fullPage:true});
  }
  assert.deepEqual(errors,[],'No browser JavaScript errors');
  fs.writeFileSync(path.join(output,'browser-results.json'),JSON.stringify({passed:true,catalogSize:280,mobileWidths:[320,390,430],checks:['profile persistence','category/equipment and Czech search','custom exercises and favorites','HTML escaping','mixed units','varied sets','series completion','tempo/rest','save and reopen','JSON export/import with BOM','empty/truncated restore preserves diary','clear preserves catalog','responsive layout'],errors},null,2));
  console.log('PASS: real Chromium UI flows, mixed-unit workout, profile/custom library, persistence, backup restore, responsive widths and screenshots.');
  await browser.close();server.close();
-})().catch(async error=>{console.error(error);if(debugPage){try{await debugPage.screenshot({path:path.join(output,'failure.png'),fullPage:true});fs.writeFileSync(path.join(output,'failure.html'),await debugPage.content());}catch(e){}}if(browser)await browser.close();server.close();process.exitCode=1;});
+})().catch(async error=>{console.error(error);if(debugPage){try{await debugPage.screenshot({animations:'disabled',path:path.join(output,'failure.png'),fullPage:true});fs.writeFileSync(path.join(output,'failure.html'),await debugPage.content());}catch(e){}}if(browser)await browser.close();server.close();process.exitCode=1;});
