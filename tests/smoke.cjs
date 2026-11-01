@@ -191,3 +191,23 @@ assert.throws(()=>run("validate({...clone(db),sessions:[{...db.sessions[0],sets:
 run("globalThis.assisted=[{exercise:'Assisted Pull-Up',reps:10,weight:30,loadMode:'assistance'}]");
 assert.ok(run('strengthAmounts(assisted)').includes('0 kg'),'Assistance is not added to lifted tonnage');
 console.log('PASS: 280 unique exercises, Czech aliases, filters, unit defaults, custom exercise validation and backup, profile validation, assistance exclusion.');
+
+// Cold boot is different from calling validate after the script has initialized.
+// Verify stored mixed-unit data can be read before the first render.
+const coldNodes=new Map();
+const coldNode=selector=>{if(!coldNodes.has(selector))coldNodes.set(selector,{innerHTML:'',textContent:'',hidden:false,dataset:{},addEventListener(){},querySelectorAll(){return []},toggleAttribute(){}});return coldNodes.get(selector);};
+const coldStorage=new Map([['bjj-performance-html-beta-v1',richBackup]]);
+const cold=vm.createContext({console,Date,Math,JSON,Set,Map,Number,String,Array,Object,Intl,Blob,
+ FormData:class extends Map{constructor(){super();}},
+ document:{querySelector:coldNode,querySelectorAll(){return []},addEventListener(){},title:''},
+ window:{},localStorage:{getItem:k=>coldStorage.get(k)??null,setItem:(k,v)=>coldStorage.set(k,v)},
+ setInterval(){},setTimeout(){},clearTimeout(){},confirm:()=>true});
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../app/src/main/assets/exercise-catalog.js'),'utf8'),cold);
+vm.runInContext(script,cold);
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../app/src/main/assets/app-v2.js'),'utf8'),cold);
+assert.equal(vm.runInContext('storageLocked',cold),false);
+assert.equal(vm.runInContext('db.demo',cold),false);
+assert.equal(vm.runInContext('db.customExercises[0].unit',cold),'meters');
+assert.equal(vm.runInContext('db.sessions[0].sets[0].unit',cold),'meters');
+assert.equal(vm.runInContext('JSON.stringify(db)',cold),richBackup);
+console.log('PASS: cold boot from persisted mixed-unit workouts and custom library without demo fallback or data changes.');

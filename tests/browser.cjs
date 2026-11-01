@@ -114,7 +114,7 @@ let browser,debugPage;
  assert.equal(dbState.sessions[0].sets[1].notes,'Druhá série delší');
  assert.equal(dbState.sessions[0].sets[0].tempo,'2-1-X-0');assert.equal(dbState.sessions[0].sets[0].restSeconds,90);
  assert.equal(dbState.sessions[0].sets[3].unit,'seconds');assert.equal(dbState.sessions[0].sets[3].reps,30.5);
- await page.reload();await page.locator('#app h1').waitFor();assert.equal((await state()).sessions[0].sets[1].done,true);
+ await page.reload();await page.locator('#app h1').waitFor();assert.equal((await state()).demo,false,'Saved diary must reload, not fall back to demo');assert.equal((await state()).sessions.length,1);assert.equal((await state()).sessions[0].sets[1].done,true);
  await page.locator('#bottomnav [data-nav=history]').click();
  await page.locator('.session[data-edit]').first().click();
  await page.locator('.exercise-overview').first().click();
