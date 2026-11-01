@@ -88,10 +88,7 @@ let browser,debugPage;
  await active().locator('.seriesdetails summary').first().click();
  const second=active().locator('[data-series]').nth(1);
  await second.locator('[name=setReps]').fill('20');
- try { await second.locator('[name=setDone]').check(); } catch(error) {
-  console.error('CHECKBOX DEBUG',JSON.stringify(await second.locator('[name=setDone]').evaluate(el=>{const r=el.getBoundingClientRect();return {html:el.outerHTML,parent:el.parentElement.outerHTML,checked:el.checked,disabled:el.disabled,centerElement:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.outerHTML,form:el.form?.id};})));
-  console.error('PAGE ERRORS',errors);throw error;
- }
+ await second.getByRole('checkbox',{name:'Série 2 hotová'}).check();
  await second.locator('.seriesnote summary').click();
  await second.locator('[name=setNote]').fill('Druhá série delší');
  await noOverflow('Series editor');
