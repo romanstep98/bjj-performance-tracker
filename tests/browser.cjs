@@ -209,6 +209,8 @@ let browser,debugPage;
  await page.evaluate(()=>openEditor('checks',null,today()));
  assert.equal(await page.locator('#entryform input[name=energy]').inputValue(),'');
  assert.equal(await page.locator('#entryform input[name=energy]').getAttribute('required'),'');
+ await page.locator('#entryform input[name=energy]').fill('8');
+ assert.equal(await page.locator('#value-energy').innerText(),'8 / 10');
  await page.locator('[data-action=close]').click();
  for(const width of [320,430,768,1365]){
   await page.setViewportSize({width,height:900});

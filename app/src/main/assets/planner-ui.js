@@ -112,5 +112,6 @@ document.addEventListener('submit',ev=>{
  try{if(f.id==='scheduleform')return saveSchedule(f);coachFormValues=plannerOptions(new FormData(f));coachDraft=buildCoachDraft(db,coachFormValues);$('#coacherror').textContent='';$('#coachpreview').innerHTML=coachPreview();$('#coachpreview').scrollIntoView?.({behavior:'smooth',block:'start'});}
  catch(e){$(f.id==='scheduleform'?'#scheduleerror':'#coacherror').textContent=e.message;}
 },true);
+document.addEventListener('input',ev=>{const input=ev.target;if(input.closest('#entryform')&&input.type==='number'&&['energy','soreness','fatigue','stress','motivation','rested'].includes(input.name)){const label=$('#value-'+input.name);if(label)label.textContent=input.value===''?'Nevyplněno':input.value+' / 10';}});
 window.handleAppBack=function(){if(plannerPreviousBack?.())return true;if(!editing&&['schedule','coach'].includes(route)){navigate('calendar');return true;}return false;};
 render();
