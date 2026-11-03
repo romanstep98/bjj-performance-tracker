@@ -272,3 +272,12 @@ run('route="coach";render()');assert.ok(nodes.get('#app').innerHTML.includes('Tr
 run('route="schedule";render()');assert.ok(nodes.get('#app').innerHTML.includes('scheduleform'));
 run('storageLocked=true');assert.throws(()=>run('persistDiary(emptyDiary())'),/Původní/);run('storageLocked=false');
 console.log('PASS: overnight/endpoint/sleep/BJJ conflicts, all four goals, equipment/exclusions, spacing, immutable previews, stale commits, idempotent scheduling, full JSON roundtrip and locked-storage protection.');
+
+run("db=emptyDiary();db.profile.availableEquipment=['bodyweight'];db.trainingSlots=[{id:'body-slot',date:add(today(),2),start:'14:00',end:'15:00',minutes:60,available:true}];globalThis.bodyOpts={start:today(),end:add(today(),7),goal:'conditioning',avoidBjj:true}");
+assert.equal(run('buildCoachDraft(db,bodyOpts).items.length'),0,'A core exercise alone is not labelled as a conditioning template');
+assert.ok(run('buildCoachDraft(db,{...bodyOpts,goal:"strength"}).items.length')>0,'Bodyweight strength fallback works');
+coldStorage.set('bjj-performance-html-beta-v1',fullPlanBackup);
+const coldPlan=vm.createContext({console,Date,Math,JSON,Set,Map,Number,String,Array,Object,Intl,Blob,FormData:class extends Map{constructor(){super();}},document:{querySelector:coldNode,querySelectorAll(){return []},addEventListener(){},title:''},window:{},localStorage:{getItem:k=>coldStorage.get(k)??null,setItem:(k,v)=>coldStorage.set(k,v)},setInterval(){},setTimeout(){},clearTimeout(){},confirm:()=>true});
+for(const source of [fs.readFileSync(path.join(__dirname,'../app/src/main/assets/exercise-catalog.js'),'utf8'),fs.readFileSync(path.join(__dirname,'../app/src/main/assets/planner-core.js'),'utf8'),script,fs.readFileSync(path.join(__dirname,'../app/src/main/assets/app-v2.js'),'utf8'),fs.readFileSync(path.join(__dirname,'../app/src/main/assets/planner-ui.js'),'utf8')])vm.runInContext(source,coldPlan);
+assert.equal(vm.runInContext('storageLocked',coldPlan),false);assert.equal(vm.runInContext('JSON.stringify(db)',coldPlan),fullPlanBackup);
+console.log('PASS: full planning data cold boot and unavailable conditioning template rejection.');

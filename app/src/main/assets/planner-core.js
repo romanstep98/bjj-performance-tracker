@@ -118,7 +118,7 @@ function buildCoachDraft(data,options){
    if(minutes>=50)append(sequence?['One-Arm Dumbbell Row','Band Row','Inverted Row']:['Push-Up','Dumbbell Bench Press'],'accessory',2,8,'reps',90);
   }
   if(minutes>=35)append(['Front Plank','Plank','Side Plank'],'accessory',2,20,'seconds',45);
-  const main=sets.filter(s=>s.block!=='warmup');
+  const main=sets.filter(s=>s.block===(goal==='conditioning'?'conditioning':goal==='power'?'power':'strength'));
   if(!main.length){skipped.push({slot:clone(slot),reasons:['Pro tento cíl a vybavení chybí vhodná šablona. Vyber jiné vybavení nebo naplánuj ručně.']});continue;}
   const estimated=5+sets.reduce((n,s)=>n+(s.unit==='seconds'?s.reps/60:s.reps*4/60)+(s.restSeconds||0)/60,0);
   if(estimated>minutes){skipped.push({slot:clone(slot),reasons:['Šablona se nevejde do zvolené délky. Zvol delší termín nebo kratší ruční trénink.']});continue;}
