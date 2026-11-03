@@ -20,8 +20,10 @@ const context = vm.createContext({
 });
 const run = code => vm.runInContext(code, context);
 vm.runInContext(fs.readFileSync(path.join(__dirname,'../app/src/main/assets/exercise-catalog.js'),'utf8'),context);
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../app/src/main/assets/planner-core.js'),'utf8'),context);
 vm.runInContext(script, context);
 vm.runInContext(fs.readFileSync(path.join(__dirname,'../app/src/main/assets/app-v2.js'),'utf8'),context);
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../app/src/main/assets/planner-ui.js'),'utf8'),context);
 assert.equal(run('db.demo'), false);
 assert.equal(run('db.sessions.length'), 0);
 assert.equal(run('db.profile.name'), 'Roman');
@@ -203,6 +205,7 @@ const cold=vm.createContext({console,Date,Math,JSON,Set,Map,Number,String,Array,
  window:{},localStorage:{getItem:k=>coldStorage.get(k)??null,setItem:(k,v)=>coldStorage.set(k,v)},
  setInterval(){},setTimeout(){},clearTimeout(){},confirm:()=>true});
 vm.runInContext(fs.readFileSync(path.join(__dirname,'../app/src/main/assets/exercise-catalog.js'),'utf8'),cold);
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../app/src/main/assets/planner-core.js'),'utf8'),cold);
 vm.runInContext(script,cold);
 vm.runInContext(fs.readFileSync(path.join(__dirname,'../app/src/main/assets/app-v2.js'),'utf8'),cold);
 assert.equal(vm.runInContext('storageLocked',cold),false);
@@ -216,3 +219,56 @@ run("db.sessions[0].sets[0].done=true;globalThis.futureCopy=makeCopies(db.sessio
 assert.equal(run('futureCopy.sets[0].done'),false);
 assert.equal(run('db.sessions[0].sets[0].done'),true);
 console.log('PASS: planned copies reset series completion without changing the source workout.');
+
+// Calendar and coach contracts: real conflicts, untouched originals, bounded
+// templates, stale previews, and backwards-compatible persisted backups.
+run("db=emptyDiary();db.profile.availableEquipment=['bodyweight','barbell','dumbbell','kettlebell','cardio'];db.profile.strengthExperience='Pokročilý';globalThis.baseDate=add(today(),2)");
+run("globalThis.shift={id:'shift-test',date:baseDate,kind:'night',start:'19:00',end:'07:00',nextDay:true,home:true,label:''};db.workShifts=[shift]");
+run("globalThis.slot={id:'slot-test',date:add(baseDate,1),start:'06:30',end:'17:00',minutes:60,available:true};db.trainingSlots=[slot];validate(db)");
+assert.ok(run('slotConflicts(db,slot).length')>0,'Night continues into the next day');
+run("slot.start='07:00'");
+assert.equal(run('slotConflicts(db,slot).length'),0,'Touching endpoints do not overlap');
+run("globalThis.opts={start:baseDate,end:add(baseDate,20),goal:'mixed',avoidBjj:true};globalThis.draft=buildCoachDraft(db,opts)");
+assert.equal(run('draft.items.length'),0,'Post-night slot without reserved sleep skipped');
+assert.ok(run("draft.skipped[0].reasons.join(' ').includes('6 h')"));
+run("db.workShifts.push({id:'sleep-test',kind:'sleep',date:add(baseDate,1),start:'07:00',end:'13:00',nextDay:false,home:false,label:''});slot.start='14:00';globalThis.draft=buildCoachDraft(db,opts)");
+assert.equal(run('draft.items.length'),1);
+assert.ok(run('draft.items[0].session.sets.every(s=>s.done===false&&s.prescription)'));
+run('validate({...clone(db),sessions:draft.items.map(x=>x.session)})');
+const scheduleBackup=run('JSON.stringify(db)');
+assert.equal(run('JSON.stringify(parseBackupText(JSON.stringify(db)))'),scheduleBackup);
+assert.throws(()=>run("validate({...clone(db),workShifts:[{...shift,nextDay:false}]})"));
+assert.throws(()=>run("validate({...clone(db),trainingSlots:[{...slot,minutes:130}]})"));
+assert.throws(()=>run("validate({...clone(db),trainingSlots:[slot,{...slot}]})"));
+run("db.sessions=[{id:'bjj-test',date:slot.date,start:'18:00',end:'19:30',duration:90,type:'BJJ Gi',title:'BJJ',rpe:7,status:'planned',sets:[]}]");
+assert.equal(run('buildCoachDraft(db,opts).items.length'),0,'BJJ-day preference honored');
+run('opts.avoidBjj=false');
+assert.equal(run('buildCoachDraft(db,opts).items.length'),1,'User may allow nonoverlapping BJJ day');
+run("db.sessions[0].start='14:30';db.sessions[0].end='16:00'");
+assert.equal(run('buildCoachDraft(db,opts).items.length'),0,'Actual BJJ overlap always rejected');
+run("db.sessions=[];db.workShifts=[];db.trainingSlots=Array.from({length:6},(_,i)=>({...slot,id:'slot-'+i,date:add(baseDate,i)}));globalThis.beforePlan=JSON.stringify(db);globalThis.draft=buildCoachDraft(db,opts)");
+assert.equal(run('draft.items.length'),3,'Adjacent gym dates filtered');
+assert.equal(run('JSON.stringify(db)'),run('beforePlan'),'Preview is nonmutating');
+run("db.profile.limitations='Omezení k posouzení'");
+assert.throws(()=>run('buildCoachDraft(db,opts)'),/omezení/);
+run("db.profile.limitations='';db.profile.excludedExercises='Goblet Squat, Back Squat, Bodyweight Hip Bridge'");
+assert.ok(run("buildCoachDraft(db,opts).items.every(x=>x.session.sets.every(s=>!['Goblet Squat','Back Squat','Bodyweight Hip Bridge'].includes(s.exercise)))"));
+run("db.profile.excludedExercises='';globalThis.coachFormValuesForTest=clone(opts)");
+for(const goal of ['strength','power','conditioning','mixed']){
+ run(`opts.goal=${JSON.stringify(goal)};globalThis.draft=buildCoachDraft(db,opts)`);
+ assert.ok(run('draft.items.length')>0,goal+' has usable template');
+ run('validate({...clone(db),sessions:draft.items.map(x=>x.session)})');
+ assert.ok(run('draft.items.every(x=>x.session.sets.every(s=>s.unit!=="seconds"||s.reps<=86400))'));
+}
+run('coachDraft=buildCoachDraft(db,opts);db.profile.name="Changed"');
+assert.throws(()=>run('commitCoachDraft()'),/změnil/);
+run('coachDraft=buildCoachDraft(db,opts);coachFormValues=clone(opts);commitCoachDraft()');
+assert.equal(run('db.sessions.length'),3);
+assert.equal(run('db.coachPlans.length'),1);
+assert.equal(run('buildCoachDraft(db,opts).items.length'),0,'Repeated generation cannot duplicate existing sessions');
+const fullPlanBackup=run('JSON.stringify(db)');
+assert.equal(run('JSON.stringify(parseBackupText(JSON.stringify(db)))'),fullPlanBackup);
+run('route="coach";render()');assert.ok(nodes.get('#app').innerHTML.includes('Tréninkový plán'));
+run('route="schedule";render()');assert.ok(nodes.get('#app').innerHTML.includes('scheduleform'));
+run('storageLocked=true');assert.throws(()=>run('persistDiary(emptyDiary())'),/Původní/);run('storageLocked=false');
+console.log('PASS: overnight/endpoint/sleep/BJJ conflicts, all four goals, equipment/exclusions, spacing, immutable previews, stale commits, idempotent scheduling, full JSON roundtrip and locked-storage protection.');

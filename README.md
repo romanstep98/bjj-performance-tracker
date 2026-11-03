@@ -1,3 +1,65 @@
+# BUILT TO ROLL · Android 0.3.0
+
+## Nové v aktualizaci 0.3.0
+
+- Kalendář spojuje sport, denní/noční/vlastní směny, práci z domova,
+  rezervace spánku a konkrétní dostupné termíny posilovny.
+- Více dnů lze označit najednou i přes více měsíců. Noční patří ke dni
+  začátku, její pokračování se ukazuje také následující den.
+- Práce z domova také blokuje souběh s tréninkem. Do vlastního intervalu lze
+  zahrnout dojíždění. Rezervace spánku se nepočítá jako skutečně naspané hodiny.
+- Návrh bloku: vlastní období do 366 dnů nebo konec podle uloženého turnaje;
+  cíle síla, výbušnost, kondice a kombinace. Náhled uvádí důvody a vynechané
+  termíny. Teprve tlačítko Uložit vloží jednotky; stávající záznamy nemění.
+- Cviky mají část tréninku a volitelné stejné označení kombinace/okruhu.
+  Původní předpis z návrhu se uchová odděleně od pozdějších výsledků.
+- Nový check-in vyžaduje vlastní odpovědi namísto předvyplněných hodnot.
+- Nové údaje jsou součástí stejné JSON zálohy. Staré zálohy zůstávají kompatibilní.
+- Uložení tréninku při chybě úložiště neuzavře formulář a zachová původní deník.
+
+## Jak používat plánování
+
+1. V Profilu vyber dostupné vybavení a zkušenosti. Vlastní váha je také vybavení.
+2. V Kalendáři otevři Směny a dostupnost, označ dny a ulož pracovní intervaly.
+3. Přidej rezervovaný spánek, zejména po noční směně. Potom zadej BJJ.
+4. Označ konkrétní dny pro posilovnu, časové okno a délku 20–120 minut.
+5. Otevři Sestavit plán, vyber období a cíl, zobraz návrh, zkontroluj důvody
+   a vlož jej do kalendáře. Každou jednotku lze dále upravit v běžném editoru.
+6. Před tréninkem vyplň aktuální check-in. Nový check-in automaticky nemění již
+   uložené jednotky; podle aktuálního stavu je uprav ručně nebo vytvoř nový návrh.
+
+## Rozsah plánovače a ověření
+
+Jde o transparentní základní šablony s pravidly, nikoli naučený model nebo
+klinicky ověřený trenérský systém. Nezvyšuje automaticky kilogramy a neodvozuje
+maxima. Poslední zátěž do 90 dnů může převzít pouze ze stejného cviku,
+jednotky, počtu opakování a nejvýše cílového RPE; jinak je 0 kg zástupná
+hodnota k ručnímu doplnění. Není to doporučení cvičit s nulovou zátěží.
+
+Vynechá přímé kolize, den volna/turnaje, sousední silové dny a podle volby den
+s BJJ. Po noční vyžaduje rezervaci nejméně 6 hodin spánku před začátkem;
+tato hranice je heuristika aplikace, nikoli potvrzení připravenosti ani
+individuální doporučení délky spánku. Skutečné zotavení není z rezervace známé.
+BJJ v sousedních dnech, check-in s únavou, čtvrtý týden a blízký turnaj omezují
+objem. Při uvedených pohybových omezeních nebo bolesti v daném dni je nutný
+ruční plán. Volný text preferencí se automaticky neinterpretuje. Vynechané
+cviky se porovnávají názvem/aliasem; důsledky zdravotních omezení se neodhadují.
+Délka jednotky je dostupný rozpočet, odhad času cviků nenahrazuje měření.
+
+RPE/RIR vychází z běžného subjektivního popisu rezervy. Odborné pozadí:
+https://pubmed.ncbi.nlm.nih.gov/31009432/ . Studie není validací tohoto
+plánovače, jeho šablon, mezí ani jejich účinku pro BJJ.
+
+Lokální `node tests/smoke.cjs` kontroluje kompatibilitu dat a plánovací pravidla.
+GitHub Actions navíc spouští skutečné Chromium na mobilních i desktopových
+šířkách, testy nativního čtení záloh, Android build a lint. Ověření na fyzickém
+telefonu je samostatný krok. APK v artefaktu `BUILT-TO-ROLL-Android` je testovací
+build. Před instalací si exportuj JSON zálohu; podpis testovacího buildu se může
+mezi sestaveními lišit, proto Android nemusí dovolit přímou instalaci přes
+starší verzi. Původní aplikaci neodinstalovávej bez ověřené zálohy.
+
+---
+
 # BUILT TO ROLL — Android beta v7
 
 Osobní offline deník pro BJJ a silový trénink. Zachovává vzhled a funkce dodané HTML verze v7.
