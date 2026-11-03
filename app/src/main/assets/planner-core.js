@@ -5,7 +5,7 @@
 function clockMinutes(t){return Number(t.slice(0,2))*60+Number(t.slice(3));}
 function clockText(n){return String(Math.floor(n/60)%24).padStart(2,'0')+':'+String(n%60).padStart(2,'0');}
 function dayMinutes(d){return Date.parse(d+'T00:00:00Z')/60000;}
-function scheduleRange(e){const start=dayMinutes(e.date)+clockMinutes(e.start),end=dayMinutes(e.date)+clockMinutes(e.end)+(e.nextDay||e.end<e.start?1440:0);return {start,end};}
+function scheduleRange(e){const start=dayMinutes(e.date)+clockMinutes(e.start);let end=dayMinutes(e.date)+clockMinutes(e.end)+(e.nextDay||e.end<e.start?1440:0);if(typeof e.duration==='number'&&Number.isFinite(e.duration))end=Math.max(end,start+e.duration);return {start,end};}
 function rangesOverlap(a,b){return a.start<b.end&&b.start<a.end;}
 function validClock(t){return typeof t==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(t);}
 function validatePlannerData(b){

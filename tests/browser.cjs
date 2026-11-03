@@ -10,7 +10,7 @@ let browser,debugPage;
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  browser=await chromium.launch({headless:true,args:['--no-sandbox']});
- const ctx=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,timezoneId:'Europe/Prague',acceptDownloads:true});
+ const ctx=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,locale:'cs-CZ',timezoneId:'Europe/Prague',acceptDownloads:true});
  const page=await ctx.newPage();debugPage=page;
  const errors=[],dialogs=[];
  page.on('pageerror',error=>errors.push(error.message));
@@ -205,6 +205,7 @@ let browser,debugPage;
  await page.evaluate(()=>{navigate('calendar');calMode='Měsíc';render();});
  await page.screenshot({animations:'disabled',path:path.join(output,'06-calendar-mobile.png'),fullPage:true});
  await noOverflow('Calendar month');
+ assert.equal(await page.locator('.planner-month .monthcell small').evaluateAll(nodes=>nodes.every(n=>getComputedStyle(n).whiteSpace==='nowrap')),true);
  await page.evaluate(()=>openEditor('checks',null,today()));
  assert.equal(await page.locator('#entryform input[name=energy]').inputValue(),'');
  assert.equal(await page.locator('#entryform input[name=energy]').getAttribute('required'),'');

@@ -281,3 +281,5 @@ const coldPlan=vm.createContext({console,Date,Math,JSON,Set,Map,Number,String,Ar
 for(const source of [fs.readFileSync(path.join(__dirname,'../app/src/main/assets/exercise-catalog.js'),'utf8'),fs.readFileSync(path.join(__dirname,'../app/src/main/assets/planner-core.js'),'utf8'),script,fs.readFileSync(path.join(__dirname,'../app/src/main/assets/app-v2.js'),'utf8'),fs.readFileSync(path.join(__dirname,'../app/src/main/assets/planner-ui.js'),'utf8')])vm.runInContext(source,coldPlan);
 assert.equal(vm.runInContext('storageLocked',coldPlan),false);assert.equal(vm.runInContext('JSON.stringify(db)',coldPlan),fullPlanBackup);
 console.log('PASS: full planning data cold boot and unavailable conditioning template rejection.');
+
+assert.equal(run("rangesOverlap(scheduleRange({date:today(),start:'14:00',end:'14:30',duration:90}),scheduleRange({date:today(),start:'15:00',end:'16:00'}))"),true,'Recorded duration prevents overlap when end time is shorter');
